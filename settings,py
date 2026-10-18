@@ -1,0 +1,56 @@
+"""Loads environment / .env into a single settings object."""
+import os
+from dataclasses import dataclass, field
+from typing import List
+
+
+def _load_dotenv(path: str = ".env"):
+    if not os.path.exists(path):
+        return
+    with open(path) as f:
+        for line in f:
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            k, v = line.split("=", 1)
+            os.environ.setdefault(k.strip(), v.strip())
+
+
+def _env(key: str, default: str = "") -> str:
+    return os.environ.get(key, default)
+
+
+@dataclass
+class Settings:
+    symbols: List[str] = field(default_factory=lambda: ["EURUSD=X"])
+    interval: str = "15m"
+    period: str = "60d"
+    poll_seconds: int = 300
+
+    telegram_token: str = ""
+    telegram_chat: str = ""
+    webhook_url: str = ""
+
+    broker: str = "paper"
+
+    journal_db: str = "journal.sqlite"
+    state_file: str = "state.json"
+    log_file: str = "bot.log"
+
+
+def load_settings() -> Settings:
+    _load_dotenv()
+    symbols = [s.strip() for s in _env("SYMBOLS", "EURUSD=X").split(",") if s.strip()]
+    return Settings(
+        symbols=symbols,
+        interval=_env("INTERVAL", "15m"),
+        period=_env("PERIOD", "60d"),
+        poll_seconds=int(_env("POLL_SECONDS", "300")),
+        telegram_token=_env("TELEGRAM_BOT_TOKEN"),
+        telegram_chat=_env("TELEGRAM_CHAT_ID"),
+        webhook_url=_env("ALERT_WEBHOOK_URL"),
+        broker=_env("BROKER", "paper"),
+        journal_db=_env("JOURNAL_DB", "journal.sqlite"),
+        state_file=_env("STATE_FILE", "state.json"),
+        log_file=_env("LOG_FILE", "bot.log"),
+    )
