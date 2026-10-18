@@ -1,0 +1,56 @@
+"""FastAPI dashboard reading the SQLite journal. Run: uvicorn api:app"""
+import json
+import sqlite3
+from contextlib import closing
+
+from fastapi import FastAPI
+
+from settings import load_settings
+
+app = FastAPI(title="ICT Turbo Bot")
+settings = load_settings()
+
+
+def _q(sql: str, params=()):
+    with closing(sqlite3.connect(settings.journal_db)) as c:
+        c.row_factory = sqlite3.Row
+        return [dict(r) for r in c.execute(sql, params).fetchall()]
+
+
+@app.get("/health")
+def health():
+    return {"ok": True}
+
+
+@app.get("/signals")
+def signals(limit: int = 50):
+    return _q("SELECT * FROM signals ORDER BY id DESC LIMIT ?", (limit,))
+
+
+@app.get("/trades")
+def trades(limit: int = 50):
+    rows = _q("SELECT * FROM trades ORDER BY id DESC LIMIT ?", (limit,))
+    for r in rows:
+        for k in ("targets", "reasons", "exits"):
+            if k in r and r[k]:
+                try:
+                    r[k] = json.loads(r[k])
+                except Exception:
+                    pass
+    return rows
+
+
+@app.get("/stats")
+def stats():
+    rows = _q("SELECT pnl, r_multiple FROM trades WHERE status='closed'")
+    if not rows:
+        return {"n": 0}
+    pnls = [r["pnl"] for r in rows if r["pnl"] is not None]
+    rs = [r["r_multiple"] for r in rows if r["r_multiple"] is not None]
+    wins = [p for p in pnls if p > 0]
+    return {
+        "n": len(pnls),
+        "win_rate": len(wins) / max(len(pnls), 1),
+        "total_pnl": sum(pnls),
+        "avg_r": sum(rs) / max(len(rs), 1),
+    }
