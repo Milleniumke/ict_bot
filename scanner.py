@@ -156,20 +156,20 @@ def scan_once(
                         status="open",
                     )
 
-def run_live(cfg: Config, settings, broker: Broker, rm: RiskManager):
+def run_live(cfg, settings, broker, rm, registry, kelly, corr_guard, news):
     alerter = Alerter(settings.telegram_token, settings.telegram_chat, settings.webhook_url)
     journal = Journal(settings.journal_db)
     state = SignalState(settings.state_file)
 
-    log.info("Live scanner started | symbols=%s interval=%s poll=%ss",
-             settings.symbols, cfg.interval, settings.poll_seconds)
+    log.info("Turbo scanner online | symbols=%s | workers=8", settings.symbols)
 
     while True:
         try:
-            scan_once(cfg, settings.symbols, alerter, journal, state, broker, rm)
+            scan_once(cfg, settings.symbols, alerter, journal, state,
+                      broker, rm, registry, kelly, corr_guard, news)
         except KeyboardInterrupt:
-            log.info("shutdown requested")
             return
         except Exception as e:
             log.exception("scan loop error: %s", e)
+        import time
         time.sleep(settings.poll_seconds)
