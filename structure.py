@@ -1,6 +1,6 @@
 """ICT structural primitives: swings, liquidity pools, sweeps, MSS, FVGs."""
 from dataclasses import dataclass
-from typing import List, Tuple
+from typing import List, Tuple, Optional
 
 import numpy as np
 import pandas as pd
