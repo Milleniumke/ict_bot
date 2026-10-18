@@ -1,7 +1,7 @@
 """Direction-agnostic signal engine — long AND short."""
 from dataclasses import dataclass, field
 from typing import List, Optional, Tuple
-
+from features import extract_features, FEATURE_NAMES
 import numpy as np
 import pandas as pd
 
@@ -27,6 +27,8 @@ class Signal:
     fvg: FVG
     confluence_score: int
     reasons: List[str] = field(default_factory=list)
+    features: dict = field(default_factory=dict)
+    adaptive_p: float = 0.5
 
 
 def _entry_from_fvg(fvg: FVG, mode: str) -> float:
@@ -174,4 +176,21 @@ def generate_signals(df: pd.DataFrame, cfg: Config) -> List[Signal]:
             reasons=reasons,
         ))
 
+    # Augment with features + adaptive prediction
+    registry = cfg.adaptive_registry  # attached at runtime, may be None
+    for s in signals:
+        try:
+            s.features = extract_features(
+                df, s.entry_index, s.direction, s.sweep, s.mss, s.fvg,
+                atr_s, adx_s, atr_pct, htf_s,
+                cfg.session_start_utc <= df.index[s.entry_index].hour < cfg.session_end_utc,
+            )
+            if registry is not None and s.features:
+                p = registry.predict(cfg.symbol, s.features)
+                if p is not None:
+                    s.adaptive_p = p
+        except Exception:
+            pass
+
     return signals
+    
