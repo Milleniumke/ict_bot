@@ -126,28 +126,42 @@ def detect_mss(
     df: pd.DataFrame,
     sweep: Sweep,
     swing_highs: List[Swing],
+    swing_lows: List[Swing],
     atr_series: pd.Series,
     body_mult: float,
     max_bars: int,
+    direction: str = "long",
 ):
-    if sweep.direction != "bullish":
-        return None
-    prior = [s for s in swing_highs if s.index < sweep.index]
-    if not prior:
-        return None
-    target = prior[-1]
-
     o = df["open"].values
     c = df["close"].values
     end = min(sweep.index + max_bars + 1, len(df))
-    for i in range(sweep.index, end):
-        av = atr_series.iloc[i]
-        if np.isnan(av) or av <= 0:
-            continue
-        body = abs(c[i] - o[i])
-        if c[i] > target.price and body >= body_mult * av:
-            return MSS(i, target.index, target.price, "bullish", float(body / av))
-    return None
+
+    if direction == "long":
+        prior = [s for s in swing_highs if s.index < sweep.index]
+        if not prior:
+            return None
+        target = prior[-1]
+        for i in range(sweep.index, end):
+            av = atr_series.iloc[i]
+            if np.isnan(av) or av <= 0:
+                continue
+            body = abs(c[i] - o[i])
+            if c[i] > target.price and body >= body_mult * av:
+                return MSS(i, target.index, target.price, "bullish", float(body / av))
+        return None
+    else:
+        prior = [s for s in swing_lows if s.index < sweep.index]
+        if not prior:
+            return None
+        target = prior[-1]
+        for i in range(sweep.index, end):
+            av = atr_series.iloc[i]
+            if np.isnan(av) or av <= 0:
+                continue
+            body = abs(c[i] - o[i])
+            if c[i] < target.price and body >= body_mult * av:
+                return MSS(i, target.index, target.price, "bearish", float(body / av))
+        return None
 
 
 # ---------------------------------------------------------------------------
